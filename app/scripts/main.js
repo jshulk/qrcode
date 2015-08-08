@@ -40,6 +40,7 @@
   };
 
   var QRCodeManager = function(element) {
+    var imageWorker = new Worker("scripts/jsqrcode/qrworker.js");
     var root = document.getElementById(element);
     var canvas = document.getElementById("qr-canvas");
     var qrcodeData = root.querySelector(".QRCodeSuccessDialog-data");
@@ -56,11 +57,19 @@
     this.detectQRCode = function(imageData, callback) {
       callback = callback || function() {};
 
-      client.decode(imageData, function(result) {
+      imageWorker.postMessage(imageData);
+
+      imageWorker.onmessage = function(event){
+        var result = event.data;
+        
         if(result !== undefined) {
           self.currentUrl = result;
         }
         callback(result);
+      }
+
+      client.decode(imageData, function(result) {
+
       });
     };
 
@@ -214,22 +223,30 @@
   
       gUM.call(navigator, params, function(theStream) {
         localStream = theStream;
-        
+        var captureSelf = captureFrame.bind(self);
+        function runCaptureFrame(){
+              captureSelf();
+              requestAnimationFrame(runCaptureFrame);
+        }
+
+
         cameraVideo.onloadeddata = function(e) {
 
           coordinatesHaveChanged = true;
           
           var isSetup = setupVariables(e);
           if(isSetup) {
-            setInterval(captureFrame.bind(self), 4);
+            requestAnimationFrame(runCaptureFrame);
+            
           }
           else {
             // This is just to get around the fact that the videoWidth is not
             // available in Firefox until sometime after the data has loaded.
             setTimeout(function() {
               setupVariables(e);
+              
+              requestAnimationFrame(runCaptureFrame);
 
-              setInterval(captureFrame.bind(self), 4);
             }, 100);
           }
 
